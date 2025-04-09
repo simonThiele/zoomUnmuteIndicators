@@ -102,12 +102,7 @@ function checkZoomStatus() {
   if (zoomApp.running()) {
     const zoomProcess = systemEvents.processes["zoom.us"];
     try {	
-	  var buttonLabels = [];
-	  for (var i = 0; i < zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems.length; i++) {
-	  	var menuItem = zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems[i];
-		buttonLabels.push(menuItem.name());
-	  }
-  	  const menuItemExists = buttonLabels.indexOf(btnTitle) !== -1;
+  	  const menuItemExists = zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems[btnTitle].exists()
       return menuItemExists ? "Unmuted" : "Muted";
     } catch (e) {
       return "Muted";
