@@ -1,4 +1,4 @@
-# Zoom Mute Indicator
+# Zoom Unmute Indicators
 
 ## But why?
 
