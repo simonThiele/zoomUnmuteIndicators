@@ -37,3 +37,10 @@ swiftc -framework Cocoa -o ./build/App main.swift App.swift BorderController.swi
 - `--unmuteButtonText="Audio stummschalten"`: Set the text of the unmute button (default: 🇬🇧 ("Mute audio"))
 
 Feel free to automate the startup
+
+## Troubleshooting
+
+### Known issues
+
+- You need to have at least MacOS Yosemite since the JXA script is not supported in older versions.
+- The executing app needs accessibility permissions to get access the zoom app menu bar entries. Note: When you start the app via shell, it's the shell which needs permissions as well.
