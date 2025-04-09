@@ -30,4 +30,10 @@ swiftc -framework Cocoa -o ./build/App main.swift App.swift BorderController.swi
 ./build/App --withMenuBarIndicator --withWindowBorderIndicator
 ```
 
+#### Arguments
+
+- `--withMenuBarIndicator`: Show the menu bar indicator
+- `--withWindowBorderIndicator`: Show the window border indicator
+- `--unmuteButtonText="Audio stummschalten"`: Set the text of the unmute button (default: 🇬🇧 ("Mute audio"))
+
 Feel free to automate the startup

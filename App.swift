@@ -9,8 +9,8 @@ protocol Mutable {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
 
-    var mutables: [Mutable] = [
-    ]
+    var mutables: [Mutable] = []
+    var buttonTextToSearchFor = "Mute audio" // "Default english"
 
     func applicationDidFinishLaunching(_: Notification) {
         for argument in CommandLine.arguments {
@@ -20,11 +20,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if argument == "--withWindowBorderIndicator" {
                 mutables.append(WindowBorderMutable())
             }
+
+            // starts with "--unmuteButtonText"
+            if argument.hasPrefix("--unmuteButtonText=") {
+                let text = String(argument.split(separator: "=")[1])
+                if text.count > 0 {
+                    buttonTextToSearchFor = text
+                }
+            }
         }
         if mutables.count == 0 {
             print("No arguments provided. Please use --withMenuBarIndicator or --withWindowBorderIndicator.")
             return
         }
+
+        print("Button text to search for: \(buttonTextToSearchFor)")
 
         prepareJXAScript()
 
@@ -60,7 +70,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             print("Language not found")
             return
         }
-        script = OSAScript(source: jxaScriptContent, language: language)
+        let scriptWithFilledPlaceholder = jxaScriptContent.replacingOccurrences(of: "{{PLACEHOLDER}}", with: buttonTextToSearchFor)
+        script = OSAScript(source: scriptWithFilledPlaceholder, language: language)
 
         var compileError: NSDictionary?
         guard script.compileAndReturnError(&compileError) else {
@@ -83,7 +94,7 @@ let jxaScriptContent = """
 ObjC.import("Foundation");
 
 function checkZoomStatus() {
-  const btnTitle = "Mute audio";
+  const btnTitle = "{{PLACEHOLDER}}";
 
   const systemEvents = Application("System Events");
   const zoomApp = Application("zoom.us");
