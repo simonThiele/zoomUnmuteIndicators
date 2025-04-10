@@ -21,20 +21,29 @@ mkdir -p ./build
 ```
 
 ```bash
-swiftc -framework Cocoa -o ./build/App main.swift App.swift BorderController.swift MenuBarMutable.swift WindowBorderMutable.swift
+swiftc -framework Cocoa -o ./build/App main.swift App.swift BorderController.swift MenuBarMutable.swift WindowBorderMutable.swift PreferencesWindowController.swift
 ```
 
 ### Run the swift app manually
 
 ```bash
-./build/App --withMenuBarIndicator --withWindowBorderIndicator
+./build/App
 ```
 
-#### Arguments
+### Preferences
 
-- `--withMenuBarIndicator`: Show the menu bar indicator
-- `--withWindowBorderIndicator`: Show the window border indicator
-- `--unmuteButtonText="Audio stummschalten"`: Set the text of the unmute button (default: 🇬🇧 ("Mute audio"))
+The app includes a preferences dialog where you can configure:
+
+- **Enable Border Indicator**: Show the window border indicator (default: enabled)
+- **Unmute Button Text**: Set the text of the unmute button in Zoom (default: "Mute audio")
+
+The menu bar indicator is always enabled to provide a consistent way to access the preferences.
+
+You can access the preferences in two ways:
+1. Click on the menu bar icon and select "Preferences..." from the menu
+2. Use the keyboard shortcut ⌘, (Command + Comma) when the app is active
+
+All preferences are automatically saved between app launches.
 
 Feel free to automate the startup
 
