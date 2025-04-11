@@ -1,5 +1,4 @@
 import Cocoa
-import OSAKit
 
 protocol Mutable {
     func setMute()
@@ -11,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var mutables: [Mutable] = []
     var buttonTextToSearchFor = "Mute audio" // "Default english"
+    var latestMuteState: Bool? = nil
 
     func applicationDidFinishLaunching(_: Notification) {
         for argument in CommandLine.arguments {
@@ -38,15 +38,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         prepareJXAScript()
 
-        var latestMuteState: Bool? = nil
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            let muteState = self.callJXACheck()
-            let unmuted = muteState == "Unmuted"
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            // Check if self still exists
+            guard let self = self else { return }
 
-            if latestMuteState == unmuted {
-                return // no change -> nothing todo
+            let result = self.executeJxaViaOsaScript()
+            let muteState = result ?? "Muted"
+            let unmuted = muteState == "Unmuted"
+            if self.latestMuteState == unmuted {
+                return // No change -> nothing todo
             }
-            latestMuteState = unmuted
+            self.latestMuteState = unmuted
 
             for mutable in self.mutables {
                 if unmuted {
@@ -64,33 +66,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timer = nil
     }
 
-    var script: OSAScript!
     func prepareJXAScript() {
-        guard let language = OSALanguage(forName: "JavaScript") else {
-            print("Language not found")
-            return
-        }
-        let scriptWithFilledPlaceholder = jxaScriptContent.replacingOccurrences(of: "{{PLACEHOLDER}}", with: buttonTextToSearchFor)
-        script = OSAScript(source: scriptWithFilledPlaceholder, language: language)
-
-        var compileError: NSDictionary?
-        guard script.compileAndReturnError(&compileError) else {
-            print("Compile error: \(compileError ?? [:])")
-            return
-        }
+        jxaScriptContent = jxaScriptContent.replacingOccurrences(of: "{{PLACEHOLDER}}", with: buttonTextToSearchFor)
     }
 
-    func callJXACheck() -> String? {
-        var executionError: NSDictionary?
-        guard let resultDescriptor = script.executeAndReturnError(&executionError) else {
-            print("Execution error: \(executionError ?? [:])")
+    func executeJxaViaOsaScript() -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        // Argumente: JavaScript-Sprache angeben (-l) und Skript als Text übergeben (-e)
+        process.arguments = ["-l", "JavaScript", "-e", jxaScriptContent]
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let outputString = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return outputString
+
+        } catch {
+            print("Error running osascript: \(error)")
             return nil
         }
-        return resultDescriptor.stringValue ?? nil
     }
 }
 
-let jxaScriptContent = """
+var jxaScriptContent = """
 ObjC.import("Foundation");
 
 function checkZoomStatus() {
@@ -101,7 +107,7 @@ function checkZoomStatus() {
 
   if (zoomApp.running()) {
     const zoomProcess = systemEvents.processes["zoom.us"];
-    try {	
+    try {
   	  const menuItemExists = zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems[btnTitle].exists()
       return menuItemExists ? "Unmuted" : "Muted";
     } catch (e) {
