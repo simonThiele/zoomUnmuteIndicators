@@ -6,35 +6,35 @@ protocol Mutable {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var timer: Timer?
+    private var timer: Timer?
 
-    var mutables: [Mutable] = []
-    var buttonTextToSearchFor = "Mute audio" // "Default english"
-    var latestMuteState: Bool? = nil
+    private var mutables: [Mutable] = []
+    private var buttonTextToSearchFor = "Mute audio" // "Default"
+    private var latestMuteState: Bool? = nil // nil -> unknown
+
+    private let enableBorderIndicatorKey = "enableBorderIndicator"
+    private let muteButtonTextKey = "muteButtonText"
+
+    private var jxaScriptContent = ""
 
     func applicationDidFinishLaunching(_: Notification) {
-        for argument in CommandLine.arguments {
-            if argument == "--withMenuBarIndicator" {
-                mutables.append(MenuBarMutable())
-            }
-            if argument == "--withWindowBorderIndicator" {
-                mutables.append(WindowBorderMutable())
-            }
+        // Set activation policy to accessory (menu bar app)
+        NSApp.setActivationPolicy(.accessory)
 
-            // starts with "--unmuteButtonText"
-            if argument.hasPrefix("--unmuteButtonText=") {
-                let text = String(argument.split(separator: "=")[1])
-                if text.count > 0 {
-                    buttonTextToSearchFor = text
-                }
-            }
-        }
-        if mutables.count == 0 {
-            print("No arguments provided. Please use --withMenuBarIndicator or --withWindowBorderIndicator.")
-            return
-        }
+        registerDefaultPreferences()
 
-        print("Button text to search for: \(buttonTextToSearchFor)")
+        // Setup menu bar
+
+        // Load preferences and initialize mutables
+        loadPreferencesAndInitialize()
+
+        // Observe preference changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesChanged),
+            name: NSNotification.Name("PreferencesChanged"),
+            object: nil
+        )
 
         prepareJXAScript()
 
@@ -60,20 +60,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_: Notification) {
+    // Register default values for preferences
+    private func registerDefaultPreferences() {
+        let defaults: [String: Any] = [
+            enableBorderIndicatorKey: true,
+            muteButtonTextKey: buttonTextToSearchFor,
+        ]
+        UserDefaults.standard.register(defaults: defaults)
+    }
+
+    // Load preferences and initialize mutables
+    private func loadPreferencesAndInitialize() {
+        mutables.removeAll()
+
+        // Get preferences
+        let enableBorder = UserDefaults.standard.bool(forKey: enableBorderIndicatorKey)
+        buttonTextToSearchFor = UserDefaults.standard.string(forKey: muteButtonTextKey) ?? "Mute audio"
+
+        // Always add menu bar indicator
+        mutables.append(MenuBarMutable())
+
+        // Initialize border indicator based on preferences
+        if enableBorder {
+            mutables.append(WindowBorderMutable())
+        }
+    }
+
+    // Open preferences window
+    @objc func openPreferences() {
+        PreferencesWindowController.shared.showWindow()
+    }
+
+    @objc func preferencesChanged() {
+        // Reload preferences and reinitialize mutables
+        loadPreferencesAndInitialize()
+
+        // Reset the state to unknown
+        latestMuteState = nil
+
+        // Update JXA script with new button text
+        prepareJXAScript()
+    }
+
+    func applicationWillTerminate(_notification _: Notification) {
         // Invalidate the timer when the application is about to terminate
         timer?.invalidate()
         timer = nil
+
+        // Remove notification observer
+        NotificationCenter.default.removeObserver(self)
     }
 
     func prepareJXAScript() {
-        jxaScriptContent = jxaScriptContent.replacingOccurrences(of: "{{PLACEHOLDER}}", with: buttonTextToSearchFor)
+        jxaScriptContent = getJXAScriptContent()
     }
 
     func executeJxaViaOsaScript() -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        // Argumente: JavaScript-Sprache angeben (-l) und Skript als Text übergeben (-e)
         process.arguments = ["-l", "JavaScript", "-e", jxaScriptContent]
 
         let outputPipe = Pipe()
@@ -94,27 +138,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
     }
-}
 
-var jxaScriptContent = """
-ObjC.import("Foundation");
+    func getJXAScriptContent() -> String {
+        return """
+        ObjC.import("Foundation");
 
-function checkZoomStatus() {
-  const btnTitle = "{{PLACEHOLDER}}";
+        function checkZoomStatus() {
+          const btnTitle = "\(buttonTextToSearchFor)";
 
-  const systemEvents = Application("System Events");
-  const zoomApp = Application("zoom.us");
+          const systemEvents = Application("System Events");
+          const zoomApp = Application("zoom.us");
 
-  if (zoomApp.running()) {
-    const zoomProcess = systemEvents.processes["zoom.us"];
-    try {
-  	  const menuItemExists = zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems[btnTitle].exists()
-      return menuItemExists ? "Unmuted" : "Muted";
-    } catch (e) {
-      return "Muted";
+          if (zoomApp.running()) {
+            const zoomProcess = systemEvents.processes["zoom.us"];
+            try {
+          	  const menuItemExists = zoomProcess.menuBars[0].menuBarItems["Meeting"].menus[0].menuItems[btnTitle].exists()
+              return menuItemExists ? "Unmuted" : "Muted";
+            } catch (e) {
+              return "Muted";
+            }
+          }
+        }
+        checkZoomStatus();
+        """
     }
-  }
 }
-
-checkZoomStatus();
-"""
