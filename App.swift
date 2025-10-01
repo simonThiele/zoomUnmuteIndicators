@@ -9,7 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
 
     private var mutables: [Mutable] = []
-    private var buttonTextToSearchFor = "Mute audio" // "Default"
+    private var buttonTextToSearchFor = "Mute audio" // "default"
     private var latestMuteState: Bool? = nil // nil -> unknown
 
     private let enableBorderIndicatorKey = "enableBorderIndicator"
